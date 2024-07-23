@@ -16,23 +16,37 @@ use leafwing_input_manager::prelude::*;
 pub mod action;
 pub mod components;
 pub mod cycle;
+pub mod movement;
 pub mod spawner;
+pub mod tracker;
 
 use action::Action;
 use components::{characteristics::AttackSpeed, Health, MoveSpeed, Player, Vector};
-use cycle::CycleTimer;
+use movement::{apply_movement, MovementBundle, MovementPlugin, Position, Velocity, WantsToMove};
+
+#[derive(Component)]
+pub struct Stun;
+
+fn stun_ability(
+    query: Query<&ActionState<Action>, With<Player>>,
+    mut events: ResMut<Events<WantsToMove>>,
+) {
+    let action_state = query.single();
+
+    if action_state.pressed(&Action::Ability) {
+        events.clear();
+    }
+}
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InputManagerPlugin::<Action>::default())
-            .insert_resource(CycleTimer(Timer::from_seconds(10.0, TimerMode::Repeating)))
+            .add_plugins(MovementPlugin)
             .add_systems(Startup, setup_game)
-            .add_systems(
-                Update,
-                (move_player, rotate_player, move_entity, player_attack),
-            );
+            .add_systems(Update, stun_ability.before(apply_movement))
+            .add_systems(Update, (move_player, rotate_player, player_attack));
     }
 }
 
@@ -52,6 +66,7 @@ fn setup_game(
         (Action::Left, KeyCode::ArrowLeft),
         (Action::Down, KeyCode::ArrowDown),
         (Action::Up, KeyCode::ArrowUp),
+        (Action::Ability, KeyCode::Space)
     ]);
 
     input_map.insert(Action::Attack, MouseButton::Left);
@@ -69,12 +84,6 @@ fn setup_game(
             ..default()
         },
     ));
-}
-
-fn move_entity(mut query: Query<(&Vector, &mut Transform)>, time: Res<Time>) {
-    for (vector, mut transform) in query.iter_mut() {
-        transform.translation += vector.0.extend(0.) * time.delta_seconds();
-    }
 }
 
 fn move_player(
@@ -117,14 +126,14 @@ fn player_attack(
 
     if action_state.pressed(&Action::Attack) {
         if let Some(_can_attack) = attack_speed.try_trigger() {
-            let vector = (player_transform.rotation * Vec3::Y).xy() * 1000.;
-
             commands.spawn((
-                Vector(vector),
+                MovementBundle {
+                    position: Position(player_transform.translation.xy()),
+                    velocity: Velocity((player_transform.rotation * Vec3::Y).xy() * 50.),
+                },
                 MaterialMesh2dBundle {
                     mesh: meshes.add(Circle::default()).into(),
                     transform: Transform::default()
-                        .with_translation(player_transform.translation)
                         .with_scale(Vec3::splat(12.)),
                     material: materials.add(Color::from(BLUE)),
                     ..default()
