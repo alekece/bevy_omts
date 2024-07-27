@@ -1,4 +1,5 @@
-use bevy::{color::palettes::css::RED, sprite::MaterialMesh2dBundle};
+use bevy::color::palettes::css::RED;
+use bevy::sprite::MaterialMesh2dBundle;
 
 use crate::prelude::*;
 
@@ -18,14 +19,8 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InputManagerPlugin::<PlayerAction>::default())
-            .add_systems(OnEnter(GamePhase::Setup), setup_player);
-        // .add_systems(
-        //     Update,
-        //     (
-        //         move_player,
-        //         (rotate_player, player_attack).run_if(resource_exists::<Cursor>),
-        //     ),
-        // );
+            .add_systems(OnEnter(GamePhase::Setup), setup_player)
+            .add_systems(Update, (move_player, rotate_player).run_if(in_state(GamePhase::Battle)));
     }
 }
 
@@ -49,7 +44,9 @@ fn setup_player(
     commands.spawn((
         Player,
         StateScoped(InGame),
-        RigidBody::Kinematic,
+        RigidBody::Dynamic,
+        LinearVelocity::default(),
+        AngularVelocity::default(),
         InputManagerBundle::with_map(input_map),
         MaterialMesh2dBundle {
             mesh: meshes.add(Triangle2d::default()).into(),
@@ -60,32 +57,29 @@ fn setup_player(
     ));
 }
 
-fn move_player(
-    mut query: Query<(Entity, &ActionState<PlayerAction>, &mut LinearVelocity), With<Player>>,
-    // mut commands: Commands,
-) {
-    let (entity, action_state, mut velocity) = query.single_mut();
+fn move_player(mut query: Query<(&ActionState<PlayerAction>, &mut LinearVelocity), With<Player>>) {
+    let (action_state, mut linear_velocity) = query.single_mut();
 
     let direction = Vec2::new(
         action_state.value(&PlayerAction::MoveAside),
         action_state.value(&PlayerAction::MoveForward),
     );
 
-    velocity.0 = direction.normalize_or_zero() * 50.;
-
-    // commands.entity(entity).insert(WantsToMove(position.0 + velocity));
+    linear_velocity.0 = direction.normalize_or_zero() * 500.;
 }
 
-// fn rotate_player(mut player_query: Query<(&mut Transform, &MoveSpeed), With<Player>>, cursor: Res<Cursor>, time: Res<Time>) {
-//     let (mut player_transform, move_speed) = player_query.single_mut();
+fn rotate_player(
+    mut player_query: Query<(&Transform, &mut AngularVelocity), With<Player>>,
+    cursor: Res<Cursor>,
+) {
+    let (player_transform, mut angular_velocity) = player_query.single_mut();
 
-//     let cursor_direction = (cursor.position - player_transform.translation.xy()).normalize();
-//     let rotation_to_cursor = Quat::from_rotation_arc(Vec3::Y, cursor_direction.extend(0.));
+    let player_direction = player_transform.local_y().truncate();
+    let cursor_direction = cursor.position - player_transform.translation.truncate();
+    let angle = player_direction.angle_between(cursor_direction);
 
-//     player_transform.rotation = player_transform
-//         .rotation
-//         .lerp(rotation_to_cursor, time.delta_seconds() * move_speed.meters_per_second);
-// }
+    angular_velocity.0 = angle * 20.;
+}
 
 // fn player_attack(
 //     player_query: Query<(&ActionState<PlayerAction>, &Transform), With<Player>>,

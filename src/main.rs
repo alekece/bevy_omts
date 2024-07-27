@@ -36,8 +36,7 @@ fn main() {
     #[cfg(debug_assertions)]
     app.add_plugins(PhysicsDebugPlugin::default());
 
-    app.add_plugins((PhysicsPlugins::default(), GamePlugin, CursorPlugin, StatePlugin))
-        .insert_resource(Gravity::ZERO);
+    app.add_plugins((PhysicsPlugins::default(), GamePlugin, CursorPlugin, StatePlugin));
 
     app.run();
 }

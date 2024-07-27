@@ -1,3 +1,5 @@
+use bevy::state::state::FreelyMutableState;
+
 use crate::prelude::*;
 
 #[derive(States, Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -40,10 +42,13 @@ impl Plugin for StatePlugin {
             .add_computed_state::<InGame>()
             .add_sub_state::<GamePhase>()
             .enable_state_scoped_entities::<GameState>()
-            .add_systems(Update, transition_to_game.run_if(in_state(GameState::Setup)));
+            .add_systems(
+                Update,
+                transition_to(GameState::InGame { paused: false }).run_if(in_state(GameState::Setup)),
+            );
     }
 }
 
-fn transition_to_game(mut state: ResMut<NextState<GameState>>) {
-    state.set(GameState::InGame { paused: false })
+pub fn transition_to<T: FreelyMutableState + Copy>(next_state: T) -> impl FnMut(ResMut<NextState<T>>) {
+    move |mut state| state.set(next_state)
 }

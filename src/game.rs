@@ -1,24 +1,23 @@
-// mod fire_ball;
-mod lifetime;
 pub mod player;
-mod characteristics;
+mod world;
 
-use bevy::prelude::*;
+use crate::prelude::*;
 
-use self::{lifetime::LifetimePlugin, player::PlayerPlugin};
+use self::player::PlayerPlugin;
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((PlayerPlugin, LifetimePlugin))
-            .add_systems(Startup, setup);
+        app.add_plugins(PlayerPlugin)
+            .add_systems(OnEnter(GamePhase::Setup), (setup_camera, transition_to(GamePhase::Battle)));
     }
 }
 
-fn setup(mut commands: Commands) {
+fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
+
 
 // fn player_attack(
 //     mut query: Query<(&ActionState<Action>, &Transform, &mut AttackSpeed), With<Player>>,
